@@ -507,6 +507,11 @@ fn run_job(mut job: Job) -> (Report, String) {
     for line in stdout.lines() {
         log.push_str(&format!("  {line}\n"));
     }
+    // BINSEC can exit successfully with an unknown verdict while explaining
+    // discontinued paths (e.g. unsupported instructions) only on stderr.
+    for line in stderr.lines() {
+        log.push_str(&format!("  {line}\n"));
+    }
 
     if !output.status.success() {
         report.details.push(format!(
@@ -514,12 +519,12 @@ fn run_job(mut job: Job) -> (Report, String) {
             output.status,
             stderr.trim()
         ));
-        log.push_str(&format!("  binsec failed ({}):\n{stderr}\n", output.status));
+        log.push_str(&format!("  binsec failed ({})\n", output.status));
         return (report, log);
     }
 
     report.status = parse_status(&stdout).unwrap_or_else(|| {
-        log.push_str(&format!("  UNEXPECTED binsec output, stderr:\n{stderr}\n"));
+        log.push_str("  UNEXPECTED binsec output\n");
         Status::Unknown
     });
     report.details = stdout
