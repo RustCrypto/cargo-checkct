@@ -111,6 +111,18 @@ impl Abi {
                 extra: "",
                 isa: None,
             }
+        } else if matches!(target, "aarch64-unknown-linux-gnu" | "aarch64-unknown-none") {
+            Abi {
+                lr: "x30",
+                // A64 instructions and return addresses must be four-byte aligned.
+                ret: "0x000000008badf00c",
+                thumb: "",
+                size: 64,
+                // BINSEC's AArch64 ABI returns values in x0 and jumps to x30.
+                return_res: "return res",
+                extra: "",
+                isa: None,
+            }
         } else if arch == "x86_64" {
             Abi {
                 lr: "@[rsp, 8]",
@@ -743,6 +755,22 @@ mod tests {
             Abi::for_target("x86_64-unknown-linux-gnu").unwrap().size,
             64
         );
+        for target in ["aarch64-unknown-linux-gnu", "aarch64-unknown-none"] {
+            let abi = Abi::for_target(target).unwrap();
+            assert_eq!(abi.lr, "x30");
+            assert_eq!(abi.size, 64);
+            assert_eq!(abi.return_res, "return res");
+            let ret = u64::from_str_radix(abi.ret.trim_start_matches("0x"), 16).unwrap();
+            assert_eq!(ret % 4, 0);
+        }
+        // Unsupported
+        for target in [
+            "aarch64-apple-darwin",
+            "aarch64_be-unknown-linux-gnu",
+            "aarch64-unknown-linux-gnu_ilp32",
+        ] {
+            assert!(Abi::for_target(target).is_err(), "{target}");
+        }
         assert!(Abi::for_target("riscv64gc-unknown-none-elf").is_err());
         assert!(Abi::for_target("target").is_err());
     }
